@@ -42,4 +42,6 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/inpainting-api:latest 
           region: asia-northeast3
           memory: 2Gi
+          cpu: 1
+          flags: "--cpu-boost"
 
