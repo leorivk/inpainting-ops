@@ -5,3 +5,5 @@ diffusers
 transformers
 Pillow
 python-multipart
+PyYAML
+

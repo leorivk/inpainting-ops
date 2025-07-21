@@ -6,11 +6,11 @@ from diffusers import StableDiffusionInpaintPipeline
 import torch
 import asyncio
 import uvicorn
+import yaml
 from contextlib import asynccontextmanager
 from functools import lru_cache
 import logging
 
-# Log Config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -27,10 +27,17 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down...")
 
+def load_config():
+    with open("config.yml", 'r') as f:
+        return yaml.safe_load(f)
+
+config = load_config()
+model_name = config['model']['name']
+
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-pipe = StableDiffusionInpaintPipeline.from_pretrained("runwayml/stable-diffusion-inpainting", torch_dtype=torch.float16).to(device)
+pipe = StableDiffusionInpaintPipeline.from_pretrained(model_name, torch_dtype=torch.float16).to(device)
 
 PROMPT = "a photo of an object, inpainting only inside the mask with a similar type of object, high resolution, realistic details, seamless blending"
 
