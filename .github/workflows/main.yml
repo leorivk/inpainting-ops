@@ -41,3 +41,5 @@ jobs:
           service: inpainting-api-service 
           image: ${{ secrets.DOCKERHUB_USERNAME }}/inpainting-api:latest 
           region: asia-northeast3
+          memory: 2Gi
+
