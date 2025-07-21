@@ -1,47 +1,63 @@
-name: CI/CD for AI Inpainting
+name: CI/CD for Vertex AI Inpainting
 
 on:
   push:
-    branches: [ "main" ] 
+    branches: [ "main" ]
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: asia-northeast3
+  ARTIFACT_REGISTRY_REPO: inpainting-repo # Artifact Registry 저장소 이름
+  IMAGE_NAME: inpainting-api
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Image
+  build-and-push-to-gcr:
+    name: Build and Push to Artifact Registry
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }} 
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
 
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/inpainting-api:latest, ${{ secrets.DOCKERHUB_USERNAME }}/inpainting-api:${{ github.sha }}
+          tags: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-  deploy-to-cloud-run:
-    name: Deploy to Google Cloud Run
-    needs: build-and-push 
+  deploy-to-vertex-ai:
+    name: Deploy to Vertex AI Endpoint
+    needs: build-and-push-to-gcr
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }} 
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
-      - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v1
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          service: inpainting-api-service 
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/inpainting-api:latest 
-          region: asia-northeast3
-          memory: 2Gi
-          cpu: 1
-          flags: "--cpu-boost"
+          python-version: '3.10'
 
+      - name: Install deployment dependencies
+        run: pip install -r requirements-deploy.txt
+
+      - name: Deploy model
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: python deploy_vertex.py

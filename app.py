@@ -87,6 +87,10 @@ async def process_image(image_data, mask_coords):
     
     return image, mask_image
 
+@app.get("/")
+def health_check():
+    return {"status": "ok"}
+
 @app.post('/inpaint')
 async def inpaint_image(
     image: UploadFile = File(...),
